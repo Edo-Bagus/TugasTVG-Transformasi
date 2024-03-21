@@ -21,6 +21,8 @@ class PaintApp:
         white_button = tk.Button(root, text="White", command=lambda: self.set_color("white"))
         white_button.pack(side=tk.BOTTOM)
 
+        
+
     def draw(self, event):
         x1, y1 = (event.x - 1), (event.y - 1)
         x2, y2 = (event.x + 1), (event.y + 1)
