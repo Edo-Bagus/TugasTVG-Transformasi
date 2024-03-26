@@ -49,7 +49,7 @@ Ini adalah aplikasi lukisan sederhana yang dibuat menggunakan pustaka Tkinter Py
 3. Jalankan perintah berikut:
 
    ```bash
-   python paint_app.py
+   python trasnsformasi.py
 
 ## Cara Menjalankan file .exe
 1. Download folder dist dari repository
