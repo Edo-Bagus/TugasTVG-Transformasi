@@ -1,158 +1,168 @@
 import tkinter as tk
-from PIL import Image, ImageTk, ImageDraw
-import io
-import numpy as np
-from PIL import Image, ImageGrab
+from tkinter import ttk
+from tkinter import colorchooser
+import math
 
 class PaintApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Simple Paint App")
 
-        self.canvas = tk.Canvas(root, width=600, height=600, bg="white")
+        self.canvas = tk.Canvas(self.root, width=600, height=400, bg="white")
         self.canvas.pack(fill=tk.BOTH, expand=True)
 
-        self.canvas.bind("<B1-Motion>", self.draw)
+        self.shapes = []  # To store drawn shapes
+        self.selected_shape = None  # To store the currently selected shape
 
-        self.color = "black"
+        # Toolbar
+        self.toolbar = ttk.Frame(self.root)
+        self.toolbar.pack(side=tk.LEFT, fill=tk.Y)
 
-        self.brush_label = tk.Label(root, text="Brush Size: 0")
-        self.brush_label.pack()
-        self.brush = tk.Scale(root, from_=0, to=100, orient="horizontal", command=self.on_brush_changed, showvalue=False)
-        self.brush.pack()
-
-        draw_button = tk.Button(root, text="Draw", command=lambda: self.set_color("black"))
-        draw_button.pack()
-
-        erase_button = tk.Button(root, text="Erase", command=lambda: self.set_color("white"))
-        erase_button.pack()
-
-        select_button = tk.Button(root, text="Select", command=self.select_area)
-        select_button.pack()
-
-        clear_button = tk.Button(root, text="Clear", command=self.clear_canvas)
-        clear_button.pack()
-
-        self.transform_button = tk.Button(root, text="Transform", command=self.transform_canvas, state='disabled')
-        self.transform_button.pack()
-
+        ttk.Button(self.toolbar, text="Draw Line", command=self.draw_line).pack(fill=tk.X)
+        ttk.Button(self.toolbar, text="Draw Rectangle", command=self.draw_rectangle).pack(fill=tk.X)
         
-
+        ttk.Button(self.toolbar, text="Select", command=self.select).pack(fill=tk.X)
         
-
+        translate_frame = ttk.Frame(self.toolbar)
+        translate_frame.pack(fill=tk.X)
+        ttk.Button(translate_frame, text="Translate", command=self.translate).pack(side=tk.LEFT)
+        self.translation_entry = ttk.Entry(translate_frame)
+        self.translation_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
         
+        rotate_frame = ttk.Frame(self.toolbar)
+        rotate_frame.pack(fill=tk.X)
+        ttk.Button(rotate_frame, text="Rotate", command=self.rotate).pack(side=tk.LEFT)
+        self.rotation_entry = ttk.Entry(rotate_frame)
+        self.rotation_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        
+        scale_frame = ttk.Frame(self.toolbar)
+        scale_frame.pack(fill=tk.X)
+        ttk.Button(scale_frame, text="Scale", command=self.scale).pack(side=tk.LEFT)
+        self.scale_entry = ttk.Entry(scale_frame)
+        self.scale_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
-        self.root.resizable(False, False)
+        # Event bindings
+        self.canvas.bind("<Button-1>", self.on_click)
+        self.canvas.bind("<B1-Motion>", self.on_drag)
+        self.canvas.bind("<ButtonRelease-1>", self.on_release)
 
-    def transform_canvas(self):
-        new_window = tk.Toplevel(self.root)
-        new_window.title("Print Preview")
-        new_window.resizable(False, False)
-        new_window.grab_set()
-        self.translation_x_label = tk.Label(new_window, text="Translate X: 0")
-        self.translation_x_label.pack()
-        self.translation_x = tk.Scale(new_window, from_=-100, to=100, orient="horizontal", command=self.on_translation_x_changed, showvalue=False)
-        self.translation_x.pack()
-        self.translation_y_label = tk.Label(new_window, text="Translate Y: 0")
-        self.translation_y_label.pack()
-        self.translation_y = tk.Scale(new_window, from_=-100, to=100, orient="horizontal", command=self.on_translation_y_changed, showvalue=False)
-        self.translation_y.pack()
-        self.rotation_label = tk.Label(new_window, text="Rotation Degree: 0")
-        self.rotation_label.pack()
-        self.rotation = tk.Scale(new_window, from_=0, to=360, orient="horizontal", command=self.on_rotation_changed, showvalue=False, state='disabled')
-        self.rotation.pack()
-        self.scale_x_label = tk.Label(new_window, text="Scale X Degree: 0")
-        self.scale_x_label.pack()
-        self.scale_x = tk.Scale(new_window, from_=-100, to=100, orient="horizontal", command=self.on_scale_x_changed, showvalue=False, state='disabled')
-        self.scale_x.pack()
-        self.scale_y_label = tk.Label(new_window, text="Scale Y Degree: 0")
-        self.scale_y_label.pack()
-        self.scale_y = tk.Scale(new_window, from_=-100, to=100, orient="horizontal", command=self.on_scale_y_changed, showvalue=False, state='disabled')
-        self.scale_y.pack()
-        self.done = tk.Button(new_window, text="Done", command=transform)
-        self.done.pack()
+    # def draw(self, shape):
+    #     self.canvas.unbind("<Button-1>")
+    #     self.canvas.unbind("<B1-Motion>")
+    #     self.canvas.unbind("<ButtonRelease-1>")
+    #     self.canvas.bind("<B1-Motion>", self.on_draw)
+    #     if shape == "line":
+    #         # print(shape)
+    #         self.canvas.bind("<Button-1>", self.start_draw_line)
+    #     elif shape == "rectangle":
+    #         # print("rect")
+    #         self.canvas.bind("<Button-1>", self.start_draw_rectangle)
 
-    def on_brush_changed(self, value):
-        self.brush_label.config(text=f"Brush Size: {value}")
-
-    def on_translation_x_changed(self, value):
-        self.translation_x_label.config(text=f"Translation X: {value}")
-        self.translate_x = self.translation_x.get()
-
-    def on_translation_y_changed(self, value):
-        self.translation_y_label.config(text=f"Translation y: {value}")
-        self.translate_y = self.translation_y.get()
-
-    def on_rotation_changed(self, value):
-        self.rotation_label.config(text=f"Rotation: {value}")
-
-    def on_scale_x_changed(self, value):
-        self.scale_x_label.config(text=f"Scale X: {value}")
-
-    def on_scale_y_changed(self, value):
-        self.scale_y_label.config(text=f"Scale Y: {value}")
-
-    def transform(self):
-           
-
-    def draw(self, event):
-        size = self.brush.get()
-        x1, y1 = (event.x - size), (event.y - size)
-        x2, y2 = (event.x + size), (event.y + size)
-        self.canvas.create_oval(x1, y1, x2, y2, fill=self.color, outline="")
-
-    def set_color(self, color):
-        self.color = color
-
-    def clear_canvas(self):
-        self.canvas.delete("all")
-
-    def select_area(self): 
-        self.canvas.bind("<ButtonPress-1>", self.start_selection)
-        self.canvas.bind("<B1-Motion>", self.track_selection)
-        self.canvas.bind("<ButtonRelease-1>", self.end_selection)
- 
-    def start_selection(self, event):
-        self.start_x = event.x
-        self.start_y = event.y
-
-    def track_selection(self, event):
-        self.end_x = event.x
-        self.end_y = event.y
-        self.canvas.delete("selection_rectangle")
-        self.canvas.create_rectangle(self.start_x - 1, self.start_y -1, self.end_x + 1, self.end_y + 1, outline="black", tags="selection_rectangle")
-
-    
-
-
-    def end_selection(self, event):
-        self.canvas.unbind("<ButtonPress-1>")
+    def draw_line(self):
+        self.canvas.unbind("<Button-1>")
         self.canvas.unbind("<B1-Motion>")
         self.canvas.unbind("<ButtonRelease-1>")
-        self.canvas.delete("selection_rectangle")
+        self.canvas.bind("<Button-1>", self.start_draw_line)
+        self.canvas.bind("<B1-Motion>", self.on_draw)
 
-        self.canvas.bind("<B1-Motion>", self.draw)
+    def draw_rectangle(self):
+        self.canvas.unbind("<Button-1>")
+        self.canvas.unbind("<B1-Motion>")
+        self.canvas.unbind("<ButtonRelease-1>")
+        self.canvas.bind("<Button-1>", self.start_draw_rectangle)
+        self.canvas.bind("<B1-Motion>", self.on_draw)
+
+    def start_draw_line(self, event):
+        self.start_x = event.x
+        self.start_y = event.y
+        self.current_shape = self.canvas.create_line(event.x, event.y, event.x, event.y)
+
+    def start_draw_rectangle(self, event):
+        self.start_x = event.x
+        self.start_y = event.y
+        self.current_shape = self.canvas.create_rectangle(event.x, event.y, event.x, event.y)
+
+    def on_draw(self, event):
+        # if self.current_shape:
+        #     coords = self.canvas.coords(self.current_shape)
+        #     if len(coords) == 4:  # Line or rectangle
+            self.canvas.coords(self.current_shape, self.start_x, self.start_y, event.x, event.y)
+
+    def select(self):
+        print('tes')
+        self.canvas.unbind("<Button-1>")
+        self.canvas.unbind("<B1-Motion>")
+        self.canvas.unbind("<ButtonRelease-1>")
+        self.canvas.bind("<Button-1>", self.on_select)
+
+    def on_select(self, event):
+        self.selected_shape = self.canvas.find_closest(event.x, event.y)[0]
+        self.canvas.itemconfig(self.selected_shape, fill="red")
+
+    def translate(self):
+        if self.selected_shape:
+            try:
+                dx = int(self.translation_entry.get())
+                dy = int(self.translation_entry.get())
+                self.canvas.move(self.selected_shape, dx, dy)
+            except ValueError:
+                pass  # Handle invalid input
+
+    def rotate_rectangle(self, x0, y0, x1, y1, angle):
+        # Calculate center of the rectangle
+        cx = (x0 + x1) / 2
+        cy = (y0 + y1) / 2
         
-        x = min(self.start_x, self.end_x)
-        y = min(self.start_y, self.end_y)
-        x1 = max(self.start_x, self.end_x)
-        y1 = max(self.start_y, self.end_y)
+        # Convert angle to radians
+        radians = math.radians(angle)
 
-        self.transform_button.config(state='active')
+        # Rotate each corner of the rectangle around the center
+        x0_new = cx + math.cos(radians) * (x0 - cx) - math.sin(radians) * (y0 - cy)
+        y0_new = cy + math.sin(radians) * (x0 - cx) + math.cos(radians) * (y0 - cy)
+        x1_new = cx + math.cos(radians) * (x1 - cx) - math.sin(radians) * (y0 - cy)
+        y1_new = cy + math.sin(radians) * (x1 - cx) + math.cos(radians) * (y0 - cy)
+        x2_new = cx + math.cos(radians) * (x1 - cx) - math.sin(radians) * (y1 - cy)
+        y2_new = cy + math.sin(radians) * (x1 - cx) + math.cos(radians) * (y1 - cy)
+        x3_new = cx + math.cos(radians) * (x0 - cx) - math.sin(radians) * (y1 - cy)
+        y3_new = cy + math.sin(radians) * (x0 - cx) + math.cos(radians) * (y1 - cy)
+        
+        return x0_new, y0_new, x1_new, y1_new, x2_new, y2_new, x3_new, y3_new
 
-        # Grab the selected area and convert it into an image
-        self.selected_img = ImageGrab.grab(bbox=(self.root.winfo_rootx() + x, 
-                                   self.root.winfo_rooty() + y, 
-                                   self.root.winfo_rootx() + x1, 
-                                   self.root.winfo_rooty() + y1))
-        self.selected_img.save('canvas_image.png')
+    def rotate(self):
+        if self.selected_shape:
+            try:
+                angle = int(self.rotation_entry.get())  # Rotate by given angle
+                x0, y0, x1, y1 = self.canvas.coords(self.selected_shape)
+                x0, y0, x1, y1, x2, y2, x3, y3 = self.rotate_rectangle(x0, y0, x1, y1, angle)
+                self.canvas.coords(self.selected_shape, x0, y0, x1, y1, x2, y2, x3, y3)
+            except ValueError:
+                pass  # Handle invalid input
 
-    def print_canvas(self):
-        self.print_img = ImageTk.PhotoImage(Image.open('canvas_image.png'))
-        self.canvas.create_image(10, 10, anchor=tk.NW, image=self.print_img)
 
-    
-if __name__ == "__main__":
-    root = tk.Tk()
-    app = PaintApp(root)
-    root.mainloop()
+    def scale(self):
+        if self.selected_shape:
+            try:
+                scale_factor = float(self.scale_entry.get())  # Scale by given factor
+                x0, y0, x1, y1 = self.canvas.coords(self.selected_shape)
+                cx = (x0 + x1) / 2
+                cy = (y0 + y1) / 2
+                new_x0 = cx + scale_factor * (x0 - cx)
+                new_y0 = cy + scale_factor * (y0 - cy)
+                new_x1 = cx + scale_factor * (x1 - cx)
+                new_y1 = cy + scale_factor * (y1 - cy)
+                self.canvas.coords(self.selected_shape, new_x0, new_y0, new_x1, new_y1)
+            except ValueError:
+                pass  # Handle invalid input
+
+    def on_click(self, event):
+        pass
+
+    def on_drag(self, event):
+        pass
+
+    def on_release(self, event):
+        pass
+
+root = tk.Tk()
+app = PaintApp(root)
+root.mainloop()
